@@ -28,6 +28,12 @@ namespace MeshExtensions.Editor
                 set => EditorPrefs.SetInt("mesh-info-handle-mode", (int)value);
             }
             
+            public float HandleScale
+            {
+                get => EditorPrefs.GetFloat("mesh-info-handle-scale", 0.5f);
+                set => EditorPrefs.SetFloat("mesh-info-handle-scale", value);
+            }
+            
             public bool DrawWire
             {
                 get => EditorPrefs.GetBool("mesh-info-draw-wire", true);
@@ -428,14 +434,16 @@ namespace MeshExtensions.Editor
             Handles.SetCamera(preview.camera);
             Handles.zTest = CompareFunction.LessEqual;
 
+            float scale = settings.HandleScale * mesh.bounds.size.magnitude;
+
             if (MeshInfoWindow.Selected != null)
             {
                 Handles.color = Color.red;
                 foreach (int i in MeshInfoWindow.Selected)
                 {
-                    Vector3 projPos = Vector3.Project(pos + rot * mesh.vertices[i], pos + rot * (mesh.vertices[i] + mesh.normals[i] * 0.15f));
-                    Vector3 viewVec = pos + rot * (mesh.vertices[i] + mesh.normals[i]);
-                    Handles.DrawSolidDisc(projPos, viewVec, 0.025f);
+                    Vector3 projPos = pos + rot * mesh.vertices[i];
+                    Vector3 viewVec = pos + rot * (mesh.vertices[i] + mesh.normals[i] * scale);
+                    Handles.DrawSolidDisc(projPos, viewVec, 0.025f * scale);
                 }
             }
 
@@ -445,20 +453,20 @@ namespace MeshExtensions.Editor
                     Handles.color = Color.green;
                     for (int i = 0; i < mesh.vertexCount; i++)
                     {
-                        Vector3 projPos = Vector3.Project(pos + rot * mesh.vertices[i], pos + rot * (mesh.vertices[i] + mesh.normals[i] * 0.1f));
-                        Quaternion viewRot = Quaternion.LookRotation(rot * mesh.normals[i]);
+                        Vector3 projPos = pos + rot * mesh.vertices[i];
+                        Quaternion viewRot = Quaternion.LookRotation(rot * mesh.normals[i] * scale);
                         
-                        Handles.ArrowHandleCap(i, projPos, viewRot, mesh.normals[i].magnitude * 0.15f, EventType.Repaint);
+                        Handles.ArrowHandleCap(i, projPos, viewRot, mesh.normals[i].magnitude * 0.1f * scale, EventType.Repaint);
                     }
                     break;
                 case HandleMode.Tangents:
                     Handles.color = Color.magenta;
                     for (int i = 0; i < mesh.vertexCount; i++)
                     {
-                        Vector3 projPos = Vector3.Project(pos + rot * mesh.vertices[i], pos + rot * (mesh.vertices[i] + mesh.normals[i] * 0.1f));
-                        Quaternion viewRot = Quaternion.LookRotation(rot * mesh.tangents[i]);
+                        Vector3 projPos = pos + rot * mesh.vertices[i];
+                        Quaternion viewRot = Quaternion.LookRotation(rot * mesh.tangents[i] * scale);
                         
-                        Handles.ArrowHandleCap(i, projPos, viewRot, mesh.normals[i].magnitude * 0.15f, EventType.Repaint);
+                        Handles.ArrowHandleCap(i, projPos, viewRot, mesh.normals[i].magnitude * 0.1f * scale, EventType.Repaint);
                     }
                     break;
                 case HandleMode.Binormals:
@@ -466,10 +474,10 @@ namespace MeshExtensions.Editor
                     for (int i = 0; i < mesh.vertexCount; i++)
                     {
                         Vector3 bin = Vector3.Cross(mesh.normals[i], mesh.tangents[i]);
-                        Vector3 projPos = Vector3.Project(pos + rot * mesh.vertices[i], pos + rot * (mesh.vertices[i] + mesh.normals[i] * 0.1f));
+                        Vector3 projPos = pos + rot * mesh.vertices[i];
                         Quaternion viewRot = Quaternion.LookRotation(rot * bin);
                         
-                        Handles.ArrowHandleCap(i, projPos, viewRot, mesh.normals[i].magnitude * 0.15f, EventType.Repaint);
+                        Handles.ArrowHandleCap(i, projPos, viewRot, mesh.normals[i].magnitude * 0.1f * scale, EventType.Repaint);
                     }
                     break;
             }
@@ -627,10 +635,16 @@ namespace MeshExtensions.Editor
                 handleRect.y = r.y;
                 handleRect.x = r.width - (wireRect.width + handleRect.width); //2
                 GUIContent handleContent = new GUIContent(m_HandleModes[(int)_settings.HandleMode]);
-                //_settings.drawHandle = GUI.Toggle(handleRect, _settings.drawHandle, new GUIContent("Handles"), EditorStyles.toolbarButton);
-                
+
                 if (EditorGUI.DropdownButton(handleRect, handleContent, FocusType.Passive, EditorStyles.toolbarDropDown))
                     DoPopup(handleRect, m_HandleModes, (int)_settings.HandleMode, SetHandleMode, _settings.availableHandleModes);
+                
+                float scaleWidth = EditorStyles.label.CalcSize(new GUIContent("--------")).x;
+                Rect scaleRect = EditorGUILayout.GetControlRect(GUILayout.Width(scaleWidth));
+                scaleRect.y = r.y;
+                scaleRect.x = r.width - (wireRect.width + handleRect.width + scaleRect.width + 6);
+
+                _settings.HandleScale = GUI.HorizontalSlider(scaleRect, _settings.HandleScale, 0.01f, 1.0f, Styles.preSlider, Styles.preSliderThumb);
             }
             
             EditorGUILayout.EndHorizontal();
